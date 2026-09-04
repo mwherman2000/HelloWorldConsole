@@ -4,7 +4,7 @@ A .NET 8 console app that prints `Hello, World!` and then signs you in with Goog
 
 ## Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download) (token encryption uses Windows DPAPI at runtime)
 - A Google Cloud project with an OAuth client of type **TVs and Limited Input devices**
 
 ## Run
@@ -71,7 +71,7 @@ Root-level `client_id` / `client_secret`, or a nested `web` object, are also acc
 
 **Environment variables**
 
-Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. These override missing values from the file.
+Set **both** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. If either is set, both must be set (they are not mixed with `client_secrets.json`).
 
 `client_secrets.json` is gitignored. Do not commit real secrets.
 
@@ -79,9 +79,9 @@ Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. These override missing values
 
 Refresh tokens are stored at:
 
-`%LocalAppData%\HelloWorldConsole\google-device-token.json`
+`%LocalAppData%\HelloWorldConsole\google-device-token.bin`
 
-That path is outside the repo.
+The file is encrypted with Windows DPAPI for the current user and written atomically. An older plaintext `google-device-token.json` in the same folder is migrated on the next successful sign-in, then deleted. Ctrl+C cancels a waiting sign-on. The app only auto-opens `https` Google verification URLs.
 
 ### Command-line flags
 
