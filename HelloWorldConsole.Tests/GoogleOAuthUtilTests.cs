@@ -102,4 +102,25 @@ public class GoogleOAuthUtilTests
             }
         }
     }
+
+    [Fact]
+    public void LooksLikeLoopbackBlocked_MatchesGoogleBrowserCopy()
+    {
+        Assert.True(GoogleOAuthUtil.LooksLikeLoopbackBlocked(
+            "The loopback flow has been blocked in order to keep users secure."));
+        Assert.True(GoogleOAuthUtil.LooksLikeLoopbackBlocked(
+            "invalid_request: loopback IP redirects are blocked"));
+        Assert.False(GoogleOAuthUtil.LooksLikeLoopbackBlocked("invalid_request only"));
+    }
+
+    [Fact]
+    public void FormatDeviceCodeFailure_GuidesTvsClientOnUnauthorized()
+    {
+        var text = GoogleOAuthUtil.FormatDeviceCodeFailure("Client is not authorized", "unauthorized_client");
+        Assert.Contains("TVs and Limited Input devices", text, StringComparison.Ordinal);
+        Assert.Contains("Device code request failed", text, StringComparison.Ordinal);
+        Assert.Equal(
+            "Device code request failed: rate limited",
+            GoogleOAuthUtil.FormatDeviceCodeFailure("rate limited", "slow_down"));
+    }
 }

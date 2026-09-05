@@ -100,7 +100,8 @@ internal sealed class GoogleDeviceSignOn
                 ?? GoogleOAuthUtil.ReadString(root, "error")
                 ?? GoogleOAuthUtil.ReadString(root, "error_code")
                 ?? $"HTTP {(int)response.StatusCode}";
-            throw new InvalidOperationException($"Device code request failed: {message}");
+            throw new InvalidOperationException(
+                GoogleOAuthUtil.FormatDeviceCodeFailure(message, GoogleOAuthUtil.ReadString(root, "error")));
         }
 
         var verificationUrl = GoogleOAuthUtil.ReadString(root, "verification_url")
@@ -140,30 +141,22 @@ internal sealed class GoogleDeviceSignOn
                 },
                 cancellationToken);
 
-            using var doc = await GoogleOAuthHttp.ReadJsonDocumentAsync(response, cancellationToken);
-            var root = doc.RootElement;
-
-            if (response.IsSuccessStatusCode)
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            var step = GoogleOAuthUtil.InterpretDeviceTokenPoll((int)response.StatusCode, body);
+            switch (step.Disposition)
             {
-                return ParseTokens(root);
-            }
-
-            switch (GoogleOAuthUtil.MapDevicePollError(GoogleOAuthUtil.ReadString(root, "error")))
-            {
+                case DevicePollDisposition.Succeeded:
+                    using (var doc = JsonDocument.Parse(body))
+                    {
+                        return ParseTokens(doc.RootElement);
+                    }
                 case DevicePollDisposition.Pending:
                     continue;
                 case DevicePollDisposition.SlowDown:
                     interval += TimeSpan.FromSeconds(5);
                     continue;
-                case DevicePollDisposition.Denied:
-                    throw new InvalidOperationException("Google sign-on was denied.");
-                case DevicePollDisposition.Expired:
-                    throw new InvalidOperationException("The device code expired. Run the app again to start a new sign-on.");
                 default:
-                    var description = GoogleOAuthUtil.ReadString(root, "error_description")
-                        ?? GoogleOAuthUtil.ReadString(root, "error")
-                        ?? $"HTTP {(int)response.StatusCode}";
-                    throw new InvalidOperationException($"Token poll failed: {description}");
+                    throw new InvalidOperationException(step.FatalMessage ?? "Token poll failed.");
             }
         }
 

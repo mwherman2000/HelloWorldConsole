@@ -10,7 +10,7 @@ internal sealed class GoogleLoopbackSignOn
     public GoogleLoopbackSignOn(string clientId, string clientSecret, string tokenPath, ILogger logger)
     {
         _secrets = new ClientSecrets { ClientId = clientId, ClientSecret = clientSecret };
-        _store = new DpapiJsonDataStore(tokenPath);
+        _store = new DpapiJsonDataStore(tokenPath, logger);
         _logger = logger;
     }
 

@@ -1,16 +1,19 @@
 using System.Security.Cryptography;
 using System.Text;
 using Google.Apis.Util.Store;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 internal sealed class DpapiJsonDataStore : IDataStore
 {
     private readonly string _path;
+    private readonly ILogger _logger;
     private readonly object _gate = new();
 
-    public DpapiJsonDataStore(string path)
+    public DpapiJsonDataStore(string path, ILogger logger)
     {
         _path = path;
+        _logger = logger;
     }
 
     public Task StoreAsync<T>(string key, T value)
@@ -80,6 +83,7 @@ internal sealed class DpapiJsonDataStore : IDataStore
         catch (Exception ex) when (ex is Newtonsoft.Json.JsonException or CryptographicException or IOException
             or UnauthorizedAccessException or PlatformNotSupportedException)
         {
+            _logger.LogWarning(ex, "Loopback token cache was unreadable and was ignored. Sign-on will start fresh.");
             return new Dictionary<string, string>(StringComparer.Ordinal);
         }
     }

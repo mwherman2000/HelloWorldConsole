@@ -1,13 +1,13 @@
 # HelloWorldConsole
 
-A .NET 8 console app that prints `Hello, World!` and then signs you in with Google. The default path is Google’s **installed-app loopback** flow (recommended for a Windows console with a browser). If that client type is not configured, the app falls back to the **device** (TV / limited-input) flow. After approval it verifies the ID token when present, then prints your Google name and email.
+A .NET 8 console app that prints `Hello, World!` and then signs you in with Google using the **device** (TV / limited-input) OAuth flow by default. Google has **blocked the loopback IP flow** for many installed clients (including **Drive API Quickstart**), which shows Error 400 `invalid_request` in the browser. Device flow avoids that. `--loopback` remains available only for a Desktop client that still allows `http://127.0.0.1` redirects.
 
 ## Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download) (token encryption uses Windows DPAPI at runtime)
 - A Google Cloud project
-  - **Desktop app** OAuth client for default loopback sign-on
-  - **TVs and Limited Input devices** client if you use `--device` (or as fallback)
+  - **TVs and Limited Input devices** OAuth client for default device sign-on (required for Drive Quickstart–era credentials; those clients cannot use loopback)
+  - **Desktop app** only if you pass `--loopback` and Google still allows loopback for that client
 
 ## Run
 
@@ -36,9 +36,9 @@ A run with no debugger at all is `dotnet run` in the terminal.
 
 ## Google sign-on
 
-**Loopback (default):** the app opens a browser and listens on `http://127.0.0.1` for the OAuth redirect ([OAuth 2.0 for mobile and desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app)).
+**Device (default):** [OAuth 2.0 for TVs and limited-input devices](https://developers.google.com/identity/protocols/oauth2/limited-input-device). The app prints a user code, allowlists `https` Google verification URLs before opening a browser, and polls until you approve.
 
-**Device (`--device`, or automatic fallback):** [OAuth 2.0 for TVs and limited-input devices](https://developers.google.com/identity/protocols/oauth2/limited-input-device). The app prints a user code, allowlists `https` Google verification URLs before opening a browser, and polls until you approve.
+**Loopback (`--loopback` only):** [OAuth 2.0 for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) via `http://127.0.0.1`. Google currently **blocks this flow** for many clients. If the browser says *“The loopback flow has been blocked”* / Error 400 `invalid_request` / *Drive API Quickstart sent an invalid request*, close the tab and run **without** `--loopback`. Create a **TVs and Limited Input devices** client if device sign-on also rejects the existing client.
 
 Both paths request `openid email profile`. The ID token is validated with Google’s certificates when Google returns one; otherwise the app loads [userinfo](https://www.googleapis.com/oauth2/v3/userinfo).
 
@@ -46,7 +46,7 @@ Both paths request `openid email profile`. The ID token is validated with Google
 
 1. Open [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
 2. Create an **OAuth client ID**.
-3. For default sign-on, application type **Desktop app**. For `--device`, type **TVs and Limited Input devices**.
+3. Application type **TVs and Limited Input devices** (do not reuse a Drive API Quickstart / Desktop client for the default flow).
 4. Configure the **OAuth consent screen**. If the app is in Testing, add your Google account as a test user.
 
 ### Give the app the client ID and secret
@@ -73,7 +73,7 @@ Root-level `client_id` / `client_secret`, or a nested `web` object, are also acc
 
 Set **both** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. If either is set, both must be set (they are not mixed with `client_secrets.json`).
 
-`client_secrets.json` is gitignored. Do not commit real secrets.
+`client_secrets.json` is gitignored. Do not commit real secrets. Do not ship this console exe to other machines with the client secret baked in or copied beside it — Google desktop/TV client secrets are not confidential once the binary is distributed. This app is for local use on your Windows account.
 
 ### Saved tokens
 
@@ -88,9 +88,8 @@ Writes are atomic. An older plaintext `google-device-token.json` is migrated on 
 
 | Flag | Effect |
 | --- | --- |
-| *(none)* | Loopback sign-on; on client-config errors, fall back to device flow |
-| `--loopback` | Loopback only (no device fallback) |
-| `--device` | Device flow only |
+| *(none)* or `--device` | Device flow (avoids Google’s loopback block) |
+| `--loopback` | Loopback only (often blocked; Drive Quickstart clients fail with Error 400) |
 | `--reauth` | Ignore saved tokens and sign in again |
 | `--sign-out` | Delete local Google token files and exit |
 | `--verbose` | Debug-level structured logs |

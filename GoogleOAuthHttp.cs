@@ -1,15 +1,41 @@
 using System.Net;
-using System.Text.Json;
 
 internal static class GoogleOAuthHttp
 {
-    internal static readonly HttpClient Http = new(new SocketsHttpHandler
+    private static readonly object Gate = new();
+    private static HttpClient _http = CreateDefaultClient();
+
+    internal static TimeSpan RetryDelayStep { get; set; } = TimeSpan.FromSeconds(2);
+
+    internal static HttpClient Http
     {
-        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-    })
+        get
+        {
+            lock (Gate)
+            {
+                return _http;
+            }
+        }
+    }
+
+    internal static IDisposable UseClient(HttpClient client)
     {
-        Timeout = TimeSpan.FromSeconds(30),
-    };
+        lock (Gate)
+        {
+            var previous = _http;
+            _http = client;
+            return new RestoreClient(previous);
+        }
+    }
+
+    private static HttpClient CreateDefaultClient() =>
+        new(new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        })
+        {
+            Timeout = TimeSpan.FromSeconds(30),
+        };
 
     internal static async Task<HttpResponseMessage> PostFormAsync(
         string url,
@@ -42,7 +68,7 @@ internal static class GoogleOAuthHttp
                 if (retryable && attempt < maxAttempts)
                 {
                     response.Dispose();
-                    await Task.Delay(TimeSpan.FromSeconds(2 * attempt), cancellationToken);
+                    await Task.Delay(RetryDelayStep * attempt, cancellationToken);
                     continue;
                 }
 
@@ -51,19 +77,19 @@ internal static class GoogleOAuthHttp
             catch (HttpRequestException ex) when (attempt < maxAttempts)
             {
                 lastException = ex;
-                await Task.Delay(TimeSpan.FromSeconds(2 * attempt), cancellationToken);
+                await Task.Delay(RetryDelayStep * attempt, cancellationToken);
             }
             catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested && attempt < maxAttempts)
             {
                 lastException = ex;
-                await Task.Delay(TimeSpan.FromSeconds(2 * attempt), cancellationToken);
+                await Task.Delay(RetryDelayStep * attempt, cancellationToken);
             }
         }
 
         throw new InvalidOperationException("Google request failed after retries.", lastException);
     }
 
-    internal static async Task<JsonDocument> ReadJsonDocumentAsync(
+    internal static async Task<System.Text.Json.JsonDocument> ReadJsonDocumentAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
@@ -75,5 +101,16 @@ internal static class GoogleOAuthHttp
         }
 
         return document;
+    }
+
+    private sealed class RestoreClient(HttpClient previous) : IDisposable
+    {
+        public void Dispose()
+        {
+            lock (Gate)
+            {
+                _http = previous;
+            }
+        }
     }
 }

@@ -89,7 +89,25 @@ internal static class GoogleOAuthUtil
                 "then copy client_secrets.json.example to client_secrets.json or set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
         }
 
-        using var doc = JsonDocument.Parse(File.ReadAllText(secretsPath));
+        using var doc = ParseClientSecretsJson(File.ReadAllText(secretsPath), secretsPath);
+        return ReadClientSecretsDocument(doc);
+    }
+
+    internal static JsonDocument ParseClientSecretsJson(string json, string? sourcePath = null)
+    {
+        try
+        {
+            return JsonDocument.Parse(json);
+        }
+        catch (JsonException ex)
+        {
+            var where = string.IsNullOrWhiteSpace(sourcePath) ? "OAuth client secrets" : sourcePath;
+            throw new InvalidOperationException($"{where} is not valid JSON.", ex);
+        }
+    }
+
+    internal static (string ClientId, string ClientSecret) ReadClientSecretsDocument(JsonDocument doc)
+    {
         var root = doc.RootElement;
         if (root.TryGetProperty("installed", out var installed))
         {
@@ -108,6 +126,82 @@ internal static class GoogleOAuthUtil
         }
 
         return (clientId, clientSecret);
+    }
+
+    internal static bool IsLoopbackClientMismatch(Exception ex)
+    {
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            if (current is Google.Apis.Auth.OAuth2.Responses.TokenResponseException tokenEx)
+            {
+                var code = tokenEx.Error?.Error;
+                return code is "redirect_uri_mismatch" or "unauthorized_client" or "invalid_client";
+            }
+        }
+
+        return false;
+    }
+
+    internal static bool LooksLikeLoopbackBlocked(string text) =>
+        text.Contains("loopback flow has been blocked", StringComparison.OrdinalIgnoreCase)
+        || (text.Contains("loopback", StringComparison.OrdinalIgnoreCase)
+            && text.Contains("blocked", StringComparison.OrdinalIgnoreCase)
+            && text.Contains("invalid_request", StringComparison.OrdinalIgnoreCase));
+
+    internal static string FormatDeviceCodeFailure(string message, string? errorCode)
+    {
+        var prefix = $"Device code request failed: {message}";
+        if (errorCode is "unauthorized_client" or "invalid_client"
+            || message.Contains("unauthorized_client", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("invalid_client", StringComparison.OrdinalIgnoreCase))
+        {
+            return prefix + " Create an OAuth client of type \"TVs and Limited Input devices\" "
+                + "(not Drive API Quickstart / Desktop). Google has blocked the loopback IP flow for many "
+                + "installed clients, including Drive Quickstart. Put that client in client_secrets.json "
+                + "and run without --loopback.";
+        }
+
+        return prefix;
+    }
+
+    internal static string LoopbackBlockedGuidance =>
+        "Google blocked the loopback IP OAuth flow for this client (common with Drive API Quickstart). "
+        + "Create an OAuth client of type \"TVs and Limited Input devices\", update client_secrets.json, "
+        + "and run: dotnet run   (device flow is the default). Use --loopback only with a Desktop client "
+        + "that still allows http://127.0.0.1 redirects.";
+
+    internal static DevicePollStep InterpretDeviceTokenPoll(int statusCode, string? body)
+    {
+        if (!TryParseJson(body, out var document) || document is null)
+        {
+            var reason = string.IsNullOrWhiteSpace(body) ? "empty" : "non-JSON";
+            throw new InvalidOperationException($"Google returned a {reason} body (HTTP {statusCode}).");
+        }
+
+        using (document)
+        {
+            var root = document.RootElement;
+            if (statusCode is >= 200 and < 300)
+            {
+                return new DevicePollStep(DevicePollDisposition.Succeeded, FatalMessage: null);
+            }
+
+            var error = ReadString(root, "error");
+            return MapDevicePollError(error) switch
+            {
+                DevicePollDisposition.Pending => new DevicePollStep(DevicePollDisposition.Pending, null),
+                DevicePollDisposition.SlowDown => new DevicePollStep(DevicePollDisposition.SlowDown, null),
+                DevicePollDisposition.Denied => new DevicePollStep(
+                    DevicePollDisposition.Denied,
+                    "Google sign-on was denied."),
+                DevicePollDisposition.Expired => new DevicePollStep(
+                    DevicePollDisposition.Expired,
+                    "The device code expired. Run the app again to start a new sign-on."),
+                _ => new DevicePollStep(
+                    DevicePollDisposition.Unknown,
+                    $"Token poll failed: {ReadString(root, "error_description") ?? error ?? $"HTTP {statusCode}"}"),
+            };
+        }
     }
 
     internal static bool IsAllowedVerificationUrl(string url)
@@ -261,7 +355,10 @@ internal enum DevicePollDisposition
     SlowDown,
     Denied,
     Expired,
+    Succeeded,
     Unknown,
 }
+
+internal readonly record struct DevicePollStep(DevicePollDisposition Disposition, string? FatalMessage);
 
 internal sealed record GoogleUser(string Subject, string? Email, string? Name, bool? EmailVerified);

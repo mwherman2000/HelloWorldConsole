@@ -48,27 +48,17 @@ try
     }
 
     GoogleUser user;
-    if (deviceOnly)
+    if (loopbackOnly)
     {
-        user = await device.SignInAsync(forceInteractive, cts.Token);
+        logger.LogWarning(
+            "Loopback is blocked by Google for many installed clients (including Drive API Quickstart). "
+            + "If the browser shows Error 400 invalid_request / loopback blocked, close it and run without --loopback.");
+        user = await loopback.SignInAsync(forceInteractive, cts.Token);
     }
     else
     {
-        try
-        {
-            user = await loopback.SignInAsync(forceInteractive, cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex) when (!loopbackOnly && IsLoopbackConfigurationError(ex))
-        {
-            logger.LogWarning(
-                ex,
-                "Loopback sign-on failed (Desktop OAuth client required). Falling back to device flow. Pass --device to skip loopback, or --loopback to disable fallback.");
-            user = await device.SignInAsync(forceInteractive, cts.Token);
-        }
+        logger.LogInformation("Starting Google device sign-on (default; loopback is opt-in via --loopback).");
+        user = await device.SignInAsync(forceInteractive, cts.Token);
     }
 
     var displayName = string.IsNullOrWhiteSpace(user.Name) ? "Google user" : user.Name;
@@ -88,15 +78,14 @@ catch (Exception ex)
 {
     logger.LogError(ex, "Sign-on failed.");
     Console.Error.WriteLine(ex.Message);
-    Console.Error.WriteLine("If a saved session is stale, try: dotnet run -- --reauth");
-    Environment.ExitCode = 1;
-}
+    if (GoogleOAuthUtil.LooksLikeLoopbackBlocked(ex.ToString()))
+    {
+        Console.Error.WriteLine(GoogleOAuthUtil.LoopbackBlockedGuidance);
+    }
+    else
+    {
+        Console.Error.WriteLine("If a saved session is stale, try: dotnet run -- --reauth");
+    }
 
-static bool IsLoopbackConfigurationError(Exception ex)
-{
-    var text = ex.ToString();
-    return text.Contains("redirect_uri_mismatch", StringComparison.OrdinalIgnoreCase)
-        || text.Contains("invalid_client", StringComparison.OrdinalIgnoreCase)
-        || text.Contains("unauthorized_client", StringComparison.OrdinalIgnoreCase)
-        || text.Contains("invalid_request", StringComparison.OrdinalIgnoreCase);
+    Environment.ExitCode = 1;
 }

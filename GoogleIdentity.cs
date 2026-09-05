@@ -29,9 +29,12 @@ internal static class GoogleIdentity
                     payload.Name,
                     payload.EmailVerified);
             }
-            catch (Exception ex) when (ex is InvalidJwtException or ArgumentException)
+            catch (Exception ex) when (ex is InvalidJwtException or ArgumentException or FormatException)
             {
-                logger.LogWarning(ex, "ID token validation failed; falling back to userinfo.");
+                logger.LogError(ex, "ID token validation failed.");
+                throw new InvalidOperationException(
+                    "Google ID token could not be verified. Aborting sign-on. Try --reauth.",
+                    ex);
             }
         }
         else
