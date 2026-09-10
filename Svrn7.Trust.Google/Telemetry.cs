@@ -31,8 +31,8 @@ public static class GoogleTelemetry
 ///   <item><c>GoogleSignOn.TokenRefresh</c> — an access-token refresh.</item>
 ///   <item><c>GoogleSignOn.ResolveIdentity</c> — ID-token validation or userinfo lookup.</item>
 /// </list>
-/// Metrics: <c>svrn7.google.sign_in.attempts</c>, <c>svrn7.google.sign_in.duration</c>,
-/// <c>svrn7.google.token.refreshes</c>, <c>svrn7.google.http.retries</c>.
+/// Metrics: <c>svrn7.google.sign_in.attempts</c>, <c>svrn7.google.token.refreshes</c>,
+/// <c>svrn7.google.http.retries</c>. (Attempt duration is available from the span timings.)
 /// </summary>
 internal static class Instrumentation
 {
@@ -47,11 +47,6 @@ internal static class Instrumentation
         "svrn7.google.sign_in.attempts",
         unit: "{attempt}",
         description: "Google sign-on attempts started.");
-
-    internal static readonly Histogram<double> SignInDuration = Meter.CreateHistogram<double>(
-        "svrn7.google.sign_in.duration",
-        unit: "s",
-        description: "Wall-clock duration of a completed Google sign-on attempt, tagged with flow and outcome.");
 
     internal static readonly Counter<long> TokenRefreshes = Meter.CreateCounter<long>(
         "svrn7.google.token.refreshes",

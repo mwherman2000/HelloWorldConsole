@@ -259,12 +259,12 @@ library emits regardless of whether anything is listening.
 | Instrument | Kind | Unit | Tags |
 |---|---|---|---|
 | `svrn7.google.sign_in.attempts` | Counter&lt;long&gt; | `{attempt}` | `signon.flow` |
-| `svrn7.google.sign_in.duration` | Histogram&lt;double&gt; | `s` | `signon.flow`, `signon.outcome` |
 | `svrn7.google.token.refreshes` | Counter&lt;long&gt; | `{refresh}` | `signon.flow`, `signon.refresh_result` |
 | `svrn7.google.http.retries` | Counter&lt;long&gt; | `{retry}` | `http.retry_reason` (`status_429` / `status_5xx` / `exception` / `timeout`) |
 
-The histogram's count is the number of completed sign-on attempts; break it
-down by `signon.outcome` for a success/failure/cancel split.
+Per-attempt duration and outcome are on the `GoogleSignOn.Device` /
+`GoogleSignOn.Loopback` spans (start/stop time and the `signon.outcome` tag),
+not a metric.
 
 No secrets, tokens, user codes, email addresses, or subject ids are placed on
 spans or metrics.

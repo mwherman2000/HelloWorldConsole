@@ -33,7 +33,6 @@ public sealed class GoogleLoopbackSignOn
         activity?.SetTag(Instrumentation.Tags.ForceInteractive, forceInteractive);
         Instrumentation.SignInAttempts.Add(1, new KeyValuePair<string, object?>(Instrumentation.Tags.Flow, "loopback"));
 
-        var startTimestamp = Stopwatch.GetTimestamp();
         var outcome = "error";
         try
         {
@@ -102,10 +101,6 @@ public sealed class GoogleLoopbackSignOn
         finally
         {
             activity?.SetTag(Instrumentation.Tags.Outcome, outcome);
-            Instrumentation.SignInDuration.Record(
-                Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds,
-                new KeyValuePair<string, object?>(Instrumentation.Tags.Flow, "loopback"),
-                new KeyValuePair<string, object?>(Instrumentation.Tags.Outcome, outcome));
         }
     }
 }

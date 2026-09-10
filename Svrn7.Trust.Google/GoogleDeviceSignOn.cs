@@ -47,7 +47,6 @@ public sealed class GoogleDeviceSignOn
         activity?.SetTag(Instrumentation.Tags.ForceInteractive, forceInteractive);
         Instrumentation.SignInAttempts.Add(1, new KeyValuePair<string, object?>(Instrumentation.Tags.Flow, "device"));
 
-        var startTimestamp = Stopwatch.GetTimestamp();
         var outcome = "error";
         try
         {
@@ -101,10 +100,6 @@ public sealed class GoogleDeviceSignOn
         finally
         {
             activity?.SetTag(Instrumentation.Tags.Outcome, outcome);
-            Instrumentation.SignInDuration.Record(
-                Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds,
-                new KeyValuePair<string, object?>(Instrumentation.Tags.Flow, "device"),
-                new KeyValuePair<string, object?>(Instrumentation.Tags.Outcome, outcome));
         }
     }
 
