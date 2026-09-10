@@ -108,8 +108,8 @@ Writes are atomic. An older plaintext `google-device-token.json` is migrated on 
 | `--reauth` | Ignore saved tokens and sign in again |
 | `--sign-out` | Delete local Google token files and exit |
 | `--verbose` | Debug-level structured logs |
-| `--otel-console` | Export `Svrn7.Trust.Google` spans and metrics to the console via the OpenTelemetry SDK |
-| `--jaeger` | Export spans over OTLP (gRPC `http://localhost:4317` by default; set `OTEL_EXPORTER_OTLP_ENDPOINT` to change) |
+| `--no-otel-console` | Turn **off** the console OpenTelemetry exporter (on by default: `Svrn7.Trust.Google` spans and metrics print to the console) |
+| `--jaeger` | Also export spans over OTLP (gRPC `http://localhost:4317` by default; set `OTEL_EXPORTER_OTLP_ENDPOINT` to change) |
 
 Examples:
 
@@ -119,13 +119,15 @@ dotnet run --project HelloWorldConsole -- --device
 dotnet run --project HelloWorldConsole -- --loopback --verbose
 dotnet run --project HelloWorldConsole -- --reauth
 dotnet run --project HelloWorldConsole -- --sign-out
-dotnet run --project HelloWorldConsole -- --otel-console
+dotnet run --project HelloWorldConsole -- --no-otel-console
 dotnet run --project HelloWorldConsole -- --jaeger
 ```
 
-`--otel-console` / `--jaeger` only wire the sample app to an exporter; the
-`Svrn7.Trust.Google` library emits the spans and metrics regardless. See
+The console OpenTelemetry exporter is **on by default** — `Svrn7.Trust.Google`
+spans and metrics print to the console after each run; `--no-otel-console`
+silences it. `--jaeger` additionally exports spans over OTLP. These flags only
+wire the sample app to an exporter; the library emits regardless. See
 [`Svrn7.Trust.Google/GUIDE.md`](Svrn7.Trust.Google/GUIDE.md#telemetry-opentelemetry).
-`docs/DEBUG.ps1 -Otel` / `-Jaeger` do the same from the debug helper.
+`docs/DEBUG.ps1 -NoOtel` / `-Jaeger` do the same from the debug helper.
 
 To pass flags from the debugger, put them in `"args"` in `.vscode/launch.json`.

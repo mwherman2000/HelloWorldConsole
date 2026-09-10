@@ -237,10 +237,10 @@ builder.Services.AddOpenTelemetry()
 
 Both names are the string `"Svrn7.Trust.Google"`.
 
-The sample `HelloWorldConsole` app wires this up on demand: `--otel-console`
-prints spans and metrics to the console, `--jaeger` exports spans over OTLP
-(`http://localhost:4317` by default). The library emits regardless of whether
-anything is listening.
+The sample `HelloWorldConsole` app wires this up: the console exporter (spans
+and metrics) is on by default and `--no-otel-console` disables it; `--jaeger`
+additionally exports spans over OTLP (`http://localhost:4317` by default). The
+library emits regardless of whether anything is listening.
 
 ### Spans
 

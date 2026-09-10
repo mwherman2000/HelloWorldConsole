@@ -37,9 +37,9 @@
 .PARAMETER CheckOnly
     Print the environment report and exit without building or running.
 
-.PARAMETER Otel
-    Pass --otel-console: export spans and metrics from the Svrn7.Trust.Google
-    library to the console via the OpenTelemetry SDK.
+.PARAMETER NoOtel
+    Pass --no-otel-console: turn off the console OpenTelemetry exporter, which
+    is otherwise on by default (library spans + metrics print to the console).
 
 .PARAMETER Jaeger
     Pass --jaeger: export spans over OTLP to a local collector / Jaeger
@@ -63,12 +63,12 @@
     ./docs/DEBUG.ps1 -Reauth -Trace
 
 .EXAMPLE
-    ./docs/DEBUG.ps1 -Otel
-    Run with OpenTelemetry spans/metrics printed to the console.
+    ./docs/DEBUG.ps1 -NoOtel
+    Run without the console OpenTelemetry dump.
 
 .EXAMPLE
     ./docs/DEBUG.ps1 -Jaeger
-    Run with traces exported to a local Jaeger.
+    Run with traces also exported to a local Jaeger.
 
 .EXAMPLE
     ./docs/DEBUG.ps1 -CheckOnly
@@ -85,7 +85,7 @@ param(
     [switch]$Device,
     [switch]$Loopback,
     [switch]$Trace,
-    [switch]$Otel,
+    [switch]$NoOtel,
     [switch]$Jaeger,
     [switch]$NoBuild,
     [switch]$CheckOnly,
@@ -186,7 +186,7 @@ if ($Device)   { $appArgs += '--device' }
 if ($Loopback) { $appArgs += '--loopback' }
 if ($Reauth)   { $appArgs += '--reauth' }
 if ($Trace)    { $appArgs += '--verbose' }
-if ($Otel)     { $appArgs += '--otel-console' }
+if ($NoOtel)   { $appArgs += '--no-otel-console' }
 if ($Jaeger)   { $appArgs += '--jaeger' }
 
 $runArgs = @('run', '--project', $Csproj, '--no-launch-profile')

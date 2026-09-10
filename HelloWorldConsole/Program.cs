@@ -18,7 +18,8 @@ internal static class Program
         var deviceOnly = args.Contains("--device", StringComparer.OrdinalIgnoreCase);
         var loopbackOnly = args.Contains("--loopback", StringComparer.OrdinalIgnoreCase);
         var verbose = args.Contains("--verbose", StringComparer.OrdinalIgnoreCase);
-        var otelConsole = args.Contains("--otel-console", StringComparer.OrdinalIgnoreCase);
+        // The OpenTelemetry console exporter is on by default; --no-otel-console turns it off.
+        var otelConsole = !args.Contains("--no-otel-console", StringComparer.OrdinalIgnoreCase);
         var jaeger = args.Contains("--jaeger", StringComparer.OrdinalIgnoreCase);
 
         if (deviceOnly && loopbackOnly)
@@ -41,12 +42,15 @@ internal static class Program
 
         using var tracerProvider = BuildTracerProvider(otelConsole, jaeger);
         using var meterProvider = BuildMeterProvider(otelConsole);
-        if (tracerProvider is not null || meterProvider is not null)
+        if (otelConsole)
         {
             logger.LogInformation(
-                "OpenTelemetry export is on (console: {Console}, jaeger/OTLP: {Jaeger}).",
-                otelConsole,
-                jaeger);
+                "OpenTelemetry console export is on (pass --no-otel-console to silence it){Jaeger}.",
+                jaeger ? "; OTLP/Jaeger export is also on" : string.Empty);
+        }
+        else if (jaeger)
+        {
+            logger.LogInformation("OpenTelemetry OTLP/Jaeger export is on.");
         }
 
         using var cts = new CancellationTokenSource();
@@ -125,9 +129,10 @@ internal static class Program
 
     /// <summary>
     /// Builds a tracer for the library's <see cref="GoogleTelemetry.ActivitySourceName"/> source,
-    /// or null when no trace exporter was requested. <c>--otel-console</c> writes spans to the
-    /// console; <c>--jaeger</c> exports them over OTLP (gRPC <c>localhost:4317</c> by default;
-    /// override with <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> / <c>OTEL_EXPORTER_OTLP_PROTOCOL</c>).
+    /// or null when no trace exporter is active. The console exporter is on by default
+    /// (<c>--no-otel-console</c> disables it); <c>--jaeger</c> also exports over OTLP
+    /// (gRPC <c>localhost:4317</c> by default; override with <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> /
+    /// <c>OTEL_EXPORTER_OTLP_PROTOCOL</c>).
     /// </summary>
     private static TracerProvider? BuildTracerProvider(bool console, bool jaeger)
     {
@@ -155,7 +160,7 @@ internal static class Program
 
     /// <summary>
     /// Builds a meter for the library's <see cref="GoogleTelemetry.MeterName"/> meter that writes
-    /// to the console, or null unless <c>--otel-console</c> was passed. (Jaeger is traces only.)
+    /// to the console, or null when <c>--no-otel-console</c> was passed. (Jaeger is traces only.)
     /// </summary>
     private static MeterProvider? BuildMeterProvider(bool console)
     {
