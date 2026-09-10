@@ -1,4 +1,5 @@
 # HelloWorldConsole
+Google direct-device authentication sample (with resuable library)
 
 A .NET 8 console app that prints `Hello, World!` and then signs you in with Google using the **device** (TV / limited-input) OAuth flow by default. Google has **blocked the loopback IP flow** for many installed clients (including **Drive API Quickstart**), which shows Error 400 `invalid_request` in the browser. Device flow avoids that. `--loopback` remains available only for a Desktop client that still allows `http://127.0.0.1` redirects.
 
