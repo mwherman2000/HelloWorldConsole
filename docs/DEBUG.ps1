@@ -12,11 +12,13 @@
         source, token cache) before launching.
       * If no .NET 8 runtime is installed, sets DOTNET_ROLL_FORWARD=Major so a
         net8.0 build runs on 9.x / 10.x instead of failing to start.
-      * Forwards the app flags (--reauth, --sign-out, --device, --loopback,
-        --verbose).
+      * Forwards the app flags. --reauth is passed by default so each debug run
+        starts from a clean session.
 
-.PARAMETER Reauth
-    Pass --reauth: ignore any cached tokens and sign in again.
+.PARAMETER NoReauth
+    Do not pass --reauth. By default the script adds it (unless -SignOut) so
+    the run ignores any cached tokens; use this to exercise the cached-token
+    fast path instead.
 
 .PARAMETER SignOut
     Pass --sign-out: delete the local token cache and exit (no network).
@@ -56,11 +58,13 @@
 
 .EXAMPLE
     ./docs/DEBUG.ps1
-    Build and run the default (device) flow. Run from the repo root; the script
-    resolves paths relative to its own location (docs/), not the caller's.
+    Build and run the default (device) flow with --reauth. Run from the repo
+    root; the script resolves paths relative to its own location (docs/), not
+    the caller's.
 
 .EXAMPLE
-    ./docs/DEBUG.ps1 -Reauth -Trace
+    ./docs/DEBUG.ps1 -NoReauth -Trace
+    Exercise the cached-token fast path with debug logging.
 
 .EXAMPLE
     ./docs/DEBUG.ps1 -NoOtel
@@ -80,7 +84,7 @@
 #>
 [CmdletBinding()]
 param(
-    [switch]$Reauth,
+    [switch]$NoReauth,
     [switch]$SignOut,
     [switch]$Device,
     [switch]$Loopback,
@@ -184,7 +188,9 @@ $appArgs = @()
 if ($SignOut)  { $appArgs += '--sign-out' }
 if ($Device)   { $appArgs += '--device' }
 if ($Loopback) { $appArgs += '--loopback' }
-if ($Reauth)   { $appArgs += '--reauth' }
+# --reauth is the default for debug runs (start from a clean session);
+# skip it for -SignOut (nothing to re-auth) or when -NoReauth is given.
+if (-not $NoReauth -and -not $SignOut) { $appArgs += '--reauth' }
 if ($Trace)    { $appArgs += '--verbose' }
 if ($NoOtel)   { $appArgs += '--no-otel-console' }
 if ($Jaeger)   { $appArgs += '--jaeger' }
