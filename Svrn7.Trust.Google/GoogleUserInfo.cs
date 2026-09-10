@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 
+namespace Svrn7.Trust.Google;
+
 internal static class GoogleUserInfo
 {
     private const string UserInfoEndpoint = "https://www.googleapis.com/oauth2/v3/userinfo";

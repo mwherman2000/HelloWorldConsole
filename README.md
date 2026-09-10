@@ -2,6 +2,21 @@
 
 A .NET 8 console app that prints `Hello, World!` and then signs you in with Google using the **device** (TV / limited-input) OAuth flow by default. Google has **blocked the loopback IP flow** for many installed clients (including **Drive API Quickstart**), which shows Error 400 `invalid_request` in the browser. Device flow avoids that. `--loopback` remains available only for a Desktop client that still allows `http://127.0.0.1` redirects.
 
+All of the Google sign-on logic lives in the reusable **`Svrn7.Trust.Google`** class library; `HelloWorldConsole` is just a thin driver over it. To use the library in your own project, see [`Svrn7.Trust.Google/GUIDE.md`](Svrn7.Trust.Google/GUIDE.md).
+
+## Repository layout
+
+```
+HelloWorldConsole.slnx              solution
+Svrn7.Trust.Google/                 reusable library (OAuth device + loopback sign-on)
+  GUIDE.md                          how to consume the library
+HelloWorldConsole/                  console app (driver)
+  Program.cs
+  Properties/launchSettings.json
+HelloWorldConsole.Tests/            xUnit tests for the library
+client_secrets.json[.example]       OAuth client credentials (repo root; gitignored)
+```
+
 ## Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download) (token encryption uses Windows DPAPI at runtime)
@@ -14,7 +29,7 @@ A .NET 8 console app that prints `Hello, World!` and then signs you in with Goog
 From the repo root:
 
 ```bash
-dotnet run
+dotnet run --project HelloWorldConsole
 dotnet test
 ```
 
@@ -28,11 +43,11 @@ The build task and the running app can use different terminal tabs. Switch to th
 
 ### Debugging
 
-The launch configuration starts `bin/Debug/net8.0/HelloWorldConsole.dll` after a `preLaunchTask` build. Working directory is the workspace folder. `client_secrets.json` is resolved from the current directory first, then the directory that contains the DLL.
+The launch configuration starts `HelloWorldConsole/bin/Debug/net8.0/HelloWorldConsole.dll` after a `preLaunchTask` build. Working directory is the repo root (the `launchSettings.json` profile sets `workingDirectory` to `$(ProjectDir)..`, and `.vscode/launch.json` sets `cwd` to `${workspaceFolder}`). `client_secrets.json` is resolved from the current directory first, then the directory that contains the DLL.
 
 If a debug or “run without debugging” session pauses on the first line of `Program.cs`, check `stopAtEntry` in `.vscode/launch.json`. When that is `true`, the .NET debugger still stops at the entry point even for Run Without Debugging, because that command uses the same launch config. Set `"stopAtEntry": false` to run straight through, then continue (`F5`) if you are already paused.
 
-A run with no debugger at all is `dotnet run` in the terminal.
+A run with no debugger at all is `dotnet run --project HelloWorldConsole` in the terminal.
 
 ## Google sign-on
 
@@ -93,15 +108,24 @@ Writes are atomic. An older plaintext `google-device-token.json` is migrated on 
 | `--reauth` | Ignore saved tokens and sign in again |
 | `--sign-out` | Delete local Google token files and exit |
 | `--verbose` | Debug-level structured logs |
+| `--otel-console` | Export `Svrn7.Trust.Google` spans and metrics to the console via the OpenTelemetry SDK |
+| `--jaeger` | Export spans over OTLP (gRPC `http://localhost:4317` by default; set `OTEL_EXPORTER_OTLP_ENDPOINT` to change) |
 
 Examples:
 
 ```bash
-dotnet run
-dotnet run -- --device
-dotnet run -- --loopback --verbose
-dotnet run -- --reauth
-dotnet run -- --sign-out
+dotnet run --project HelloWorldConsole
+dotnet run --project HelloWorldConsole -- --device
+dotnet run --project HelloWorldConsole -- --loopback --verbose
+dotnet run --project HelloWorldConsole -- --reauth
+dotnet run --project HelloWorldConsole -- --sign-out
+dotnet run --project HelloWorldConsole -- --otel-console
+dotnet run --project HelloWorldConsole -- --jaeger
 ```
+
+`--otel-console` / `--jaeger` only wire the sample app to an exporter; the
+`Svrn7.Trust.Google` library emits the spans and metrics regardless. See
+[`Svrn7.Trust.Google/GUIDE.md`](Svrn7.Trust.Google/GUIDE.md#telemetry-opentelemetry).
+`docs/DEBUG.ps1 -Otel` / `-Jaeger` do the same from the debug helper.
 
 To pass flags from the debugger, put them in `"args"` in `.vscode/launch.json`.

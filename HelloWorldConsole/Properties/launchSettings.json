@@ -2,7 +2,7 @@
   "profiles": {
     "HelloWorldConsole": {
       "commandName": "Project",
-      "workingDirectory": "$(ProjectDir)"
+      "workingDirectory": "$(ProjectDir).."
     }
   }
 }

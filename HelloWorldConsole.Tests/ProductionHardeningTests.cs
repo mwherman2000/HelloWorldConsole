@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using Google.Apis.Auth.OAuth2.Responses;
 using Microsoft.Extensions.Logging.Abstractions;
+using Svrn7.Trust.Google;
 using Xunit;
 
 namespace HelloWorldConsole.Tests;

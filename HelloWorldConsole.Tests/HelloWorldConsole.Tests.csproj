@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HelloWorldConsole.csproj" />
+    <ProjectReference Include="..\Svrn7.Trust.Google\Svrn7.Trust.Google.csproj" />
   </ItemGroup>
 
 </Project>

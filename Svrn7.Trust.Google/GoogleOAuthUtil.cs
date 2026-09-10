@@ -3,8 +3,11 @@ using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
+using Google.Apis.Auth.OAuth2.Responses;
 
-internal static class GoogleOAuthUtil
+namespace Svrn7.Trust.Google;
+
+public static class GoogleOAuthUtil
 {
     internal static readonly string[] Scopes = ["openid", "email", "profile"];
     internal static readonly byte[] TokenEntropy = Encoding.UTF8.GetBytes("HelloWorldConsole.GoogleDeviceSignOn.v1");
@@ -18,7 +21,7 @@ internal static class GoogleOAuthUtil
         return dir;
     }
 
-    internal static string ResolveSecretsDirectory()
+    public static string ResolveSecretsDirectory()
     {
         var cwd = Directory.GetCurrentDirectory();
         if (File.Exists(Path.Combine(cwd, "client_secrets.json")))
@@ -132,7 +135,7 @@ internal static class GoogleOAuthUtil
     {
         for (var current = ex; current is not null; current = current.InnerException)
         {
-            if (current is Google.Apis.Auth.OAuth2.Responses.TokenResponseException tokenEx)
+            if (current is TokenResponseException tokenEx)
             {
                 var code = tokenEx.Error?.Error;
                 return code is "redirect_uri_mismatch" or "unauthorized_client" or "invalid_client";
@@ -142,7 +145,7 @@ internal static class GoogleOAuthUtil
         return false;
     }
 
-    internal static bool LooksLikeLoopbackBlocked(string text) =>
+    public static bool LooksLikeLoopbackBlocked(string text) =>
         text.Contains("loopback flow has been blocked", StringComparison.OrdinalIgnoreCase)
         || (text.Contains("loopback", StringComparison.OrdinalIgnoreCase)
             && text.Contains("blocked", StringComparison.OrdinalIgnoreCase)
@@ -164,7 +167,7 @@ internal static class GoogleOAuthUtil
         return prefix;
     }
 
-    internal static string LoopbackBlockedGuidance =>
+    public static string LoopbackBlockedGuidance =>
         "Google blocked the loopback IP OAuth flow for this client (common with Drive API Quickstart). "
         + "Create an OAuth client of type \"TVs and Limited Input devices\", update client_secrets.json, "
         + "and run: dotnet run   (device flow is the default). Use --loopback only with a Desktop client "
@@ -361,4 +364,4 @@ internal enum DevicePollDisposition
 
 internal readonly record struct DevicePollStep(DevicePollDisposition Disposition, string? FatalMessage);
 
-internal sealed record GoogleUser(string Subject, string? Email, string? Name, bool? EmailVerified);
+public sealed record GoogleUser(string Subject, string? Email, string? Name, bool? EmailVerified);

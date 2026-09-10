@@ -1,5 +1,7 @@
 using System.Net;
 
+namespace Svrn7.Trust.Google;
+
 internal static class GoogleOAuthHttp
 {
     private static readonly object Gate = new();
@@ -68,6 +70,7 @@ internal static class GoogleOAuthHttp
                 if (retryable && attempt < maxAttempts)
                 {
                     response.Dispose();
+                    RecordRetry(code == (int)HttpStatusCode.TooManyRequests ? "status_429" : "status_5xx");
                     await Task.Delay(RetryDelayStep * attempt, cancellationToken);
                     continue;
                 }
@@ -77,17 +80,22 @@ internal static class GoogleOAuthHttp
             catch (HttpRequestException ex) when (attempt < maxAttempts)
             {
                 lastException = ex;
+                RecordRetry("exception");
                 await Task.Delay(RetryDelayStep * attempt, cancellationToken);
             }
             catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested && attempt < maxAttempts)
             {
                 lastException = ex;
+                RecordRetry("timeout");
                 await Task.Delay(RetryDelayStep * attempt, cancellationToken);
             }
         }
 
         throw new InvalidOperationException("Google request failed after retries.", lastException);
     }
+
+    private static void RecordRetry(string reason) =>
+        Instrumentation.HttpRetries.Add(1, new KeyValuePair<string, object?>(Instrumentation.Tags.RetryReason, reason));
 
     internal static async Task<System.Text.Json.JsonDocument> ReadJsonDocumentAsync(
         HttpResponseMessage response,

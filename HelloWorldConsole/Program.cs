@@ -1,4 +1,9 @@
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Svrn7.Trust.Google;
 
 namespace HelloWorldConsole;
 
@@ -13,6 +18,8 @@ internal static class Program
         var deviceOnly = args.Contains("--device", StringComparer.OrdinalIgnoreCase);
         var loopbackOnly = args.Contains("--loopback", StringComparer.OrdinalIgnoreCase);
         var verbose = args.Contains("--verbose", StringComparer.OrdinalIgnoreCase);
+        var otelConsole = args.Contains("--otel-console", StringComparer.OrdinalIgnoreCase);
+        var jaeger = args.Contains("--jaeger", StringComparer.OrdinalIgnoreCase);
 
         if (deviceOnly && loopbackOnly)
         {
@@ -31,6 +38,16 @@ internal static class Program
             });
         });
         var logger = loggerFactory.CreateLogger("HelloWorldConsole");
+
+        using var tracerProvider = BuildTracerProvider(otelConsole, jaeger);
+        using var meterProvider = BuildMeterProvider(otelConsole);
+        if (tracerProvider is not null || meterProvider is not null)
+        {
+            logger.LogInformation(
+                "OpenTelemetry export is on (console: {Console}, jaeger/OTLP: {Jaeger}).",
+                otelConsole,
+                jaeger);
+        }
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>
@@ -104,6 +121,54 @@ internal static class Program
 
         Console.WriteLine("Press Enter to exit...");
         Console.ReadLine();
+    }
+
+    /// <summary>
+    /// Builds a tracer for the library's <see cref="GoogleTelemetry.ActivitySourceName"/> source,
+    /// or null when no trace exporter was requested. <c>--otel-console</c> writes spans to the
+    /// console; <c>--jaeger</c> exports them over OTLP (gRPC <c>localhost:4317</c> by default;
+    /// override with <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> / <c>OTEL_EXPORTER_OTLP_PROTOCOL</c>).
+    /// </summary>
+    private static TracerProvider? BuildTracerProvider(bool console, bool jaeger)
+    {
+        if (!console && !jaeger)
+        {
+            return null;
+        }
+
+        var builder = Sdk.CreateTracerProviderBuilder()
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("HelloWorldConsole"))
+            .AddSource(GoogleTelemetry.ActivitySourceName);
+
+        if (console)
+        {
+            builder.AddConsoleExporter();
+        }
+
+        if (jaeger)
+        {
+            builder.AddOtlpExporter();
+        }
+
+        return builder.Build();
+    }
+
+    /// <summary>
+    /// Builds a meter for the library's <see cref="GoogleTelemetry.MeterName"/> meter that writes
+    /// to the console, or null unless <c>--otel-console</c> was passed. (Jaeger is traces only.)
+    /// </summary>
+    private static MeterProvider? BuildMeterProvider(bool console)
+    {
+        if (!console)
+        {
+            return null;
+        }
+
+        return Sdk.CreateMeterProviderBuilder()
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("HelloWorldConsole"))
+            .AddMeter(GoogleTelemetry.MeterName)
+            .AddConsoleExporter()
+            .Build();
     }
 
     /// <summary>

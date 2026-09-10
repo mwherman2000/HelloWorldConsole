@@ -4,6 +4,8 @@ using Google.Apis.Util.Store;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
+namespace Svrn7.Trust.Google;
+
 internal sealed class DpapiJsonDataStore : IDataStore
 {
     private readonly string _path;
